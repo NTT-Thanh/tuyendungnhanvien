@@ -66,8 +66,8 @@
   </main>
 
   <script>
-    const ORIGINAL_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRvuzHWqXL8q97i9JcW2MRR0pmMqRk7-jXBJrHGRTCKdf5OdrLQ8BNCIuDSZsUt_Zov-TyuaqvOJLG0/pub?gid=0&single=true&output=tsv';
-    const TSV_URL = `https://corsproxy.io/?${encodeURIComponent(ORIGINAL_URL)}`;
+    // Link TSV trực tiếp từ Google Sheet của bạn (Không dùng Proxy)
+    const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRvuzHWqXL8q97i9JcW2MRR0pmMqRk7-jXBJrHGRTCKdf5OdrLQ8BNCIuDSZsUt_Zov-TyuaqvOJLG0/pub?gid=0&single=true&output=tsv';
 
     let allJobs = [];
 
@@ -96,10 +96,12 @@
       const container = document.getElementById('jobList');
       try {
         const response = await fetch(TSV_URL);
+        if (!response.ok) throw new Error('Không thể tải dữ liệu từ Google Sheet');
+
         const dataText = await response.text();
         const rawData = parseTSV(dataText);
 
-        // Lọc các bài hiển thị (Trạng thái bỏ trống hoặc "Đang tuyển")
+        // Lọc bài đăng theo trạng thái
         allJobs = rawData.filter(job => {
           const status = (job['Trạng thái'] || job['Trạng Thái'] || '').toLowerCase();
           return status === '' || status === 'đang tuyển';
@@ -110,8 +112,9 @@
       } catch (error) {
         console.error("Lỗi tải dữ liệu:", error);
         container.innerHTML = `
-          <div class="bg-red-50 text-red-600 p-4 rounded-xl text-center text-sm border border-red-100">
-            Không thể tải dữ liệu từ Google Sheet. Vui lòng kiểm tra lại kết nối.
+          <div class="bg-red-50 text-red-600 p-4 rounded-xl text-center text-sm border border-red-100 space-y-2">
+            <p class="font-bold">Không thể tải dữ liệu từ Google Sheet.</p>
+            <p class="text-xs">Vui lòng kiểm tra lại quyền Chia sẻ công khai (Anyone with the link can view) và đã xuất bản dạng TSV.</p>
           </div>
         `;
       }
@@ -119,6 +122,7 @@
 
     function populateLocations(jobs) {
       const select = document.getElementById('filterLocation');
+      select.innerHTML = '<option value="">Tất cả Địa điểm / Khu vực</option>';
       const locations = new Set();
       jobs.forEach(job => {
         const loc = job['Địa điểm'] || job['Địa Điểm'];
@@ -151,16 +155,13 @@
         const hrName = job['Tên HR'] || 'Bộ phận tuyển dụng';
         const status = job['Trạng thái'] || job['Trạng Thái'];
 
-        // Các trường hệ thống đã xử lý riêng ở tiêu đề/footer nên sẽ được bỏ qua trong vòng lặp động bên dưới
-        const excludedKeys = ['Mã Bài', 'Mã bài', 'Tiêu Đề', 'Tiêu đề', 'Tên HR', 'SĐT ZALO', 'SĐT Zalo', 'Trạng thái', 'Trạng Thái', 'Link map'];
+        const excludedKeys = ['Mã Bài', 'Mã bài', 'Tiêu Đề', 'Tiêu đề', 'Tên HR', 'SĐT ZALO', 'SĐT Zalo', 'Trạng thái', 'Trạng Thái', 'Link map', 'Link Map'];
 
-        // Vòng lặp động: Tự động quét và sinh HTML cho tất cả các trường có dữ liệu
         let dynamicFieldsHTML = '';
         Object.entries(job).forEach(([key, val]) => {
           if (val && val.trim() !== '' && !excludedKeys.includes(key)) {
             let displayVal = val;
             
-            // Nếu là trường Địa chỉ và có đính kèm Link map thì gắn nút xem bản đồ
             if ((key.toLowerCase() === 'địa chỉ') && (job['Link map'] || job['Link Map'])) {
               const mapLink = job['Link map'] || job['Link Map'];
               displayVal = `${val} <a href="${mapLink}" target="_blank" class="text-blue-600 underline font-medium ml-1">[Xem bản đồ]</a>`;
@@ -177,8 +178,6 @@
 
         return `
           <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition space-y-3">
-            
-            <!-- Tiêu đề & Trạng thái -->
             <div class="flex justify-between items-start gap-2">
               <h2 class="text-base sm:text-lg font-bold text-gray-900">
                 ${title}
@@ -190,12 +189,10 @@
               ` : ''}
             </div>
 
-            <!-- Khung chứa toàn bộ các trường thông tin động -->
             <div class="bg-gray-50 rounded-lg p-3.5 space-y-1.5 border border-gray-100">
               ${dynamicFieldsHTML}
             </div>
 
-            <!-- Footer: Thông tin HR & Nút Zalo -->
             <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 border-t border-gray-100">
               <div class="text-xs text-gray-500">
                 <i class="fa-solid fa-user-tie text-gray-400 mr-1"></i> HR: <strong class="text-gray-700">${hrName}</strong>
@@ -209,7 +206,6 @@
                 <i class="fa-solid fa-comment-dots"></i> Nhắn Zalo Ứng Tuyển
               </a>
             </div>
-
           </div>
         `;
       }).join('');

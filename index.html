@@ -27,30 +27,33 @@
 
   <main class="max-w-4xl mx-auto px-4 mt-6">
     
-    <!-- Thanh Tìm kiếm và Lọc -->
+    <!-- Thanh Tìm kiếm và Lọc Nâng Cao -->
     <div class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-gray-100 space-y-3">
+      <!-- Tìm kiếm từ khóa -->
       <div class="relative">
         <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-gray-400"></i>
         <input 
           type="text" 
           id="searchInput" 
-          placeholder="Tìm kiếm theo tiêu đề, công việc, địa điểm, mức lương..." 
+          placeholder="Tìm kiếm công việc, tiêu đề, mức lương..."
           class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           oninput="filterJobs()"
         />
       </div>
 
+      <!-- Bộ lọc Địa chỉ & Hình thức trả lương -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <select id="filterLocation" onchange="filterJobs()" class="w-full p-2.5 text-xs rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">Tất cả Địa điểm / Khu vực</option>
+            <option value="">📍 Lọc theo Địa điểm / Khu vực</option>
           </select>
         </div>
         <div>
           <select id="filterPaySchedule" onchange="filterJobs()" class="w-full p-2.5 text-xs rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">Tất cả Lịch trả lương</option>
-            <option value="ngày">Theo Ngày</option>
-            <option value="tuần">Theo Tuần</option>
+            <option value="">💰 Lọc theo Cách thức trả lương</option>
+            <option value="ngày">Theo ngày</option>
+            <option value="tuần">Theo tuần</option>
+            <option value="liền">Lương liền</option>
           </select>
         </div>
       </div>
@@ -66,10 +69,13 @@
   </main>
 
   <script>
-    // Link TSV trực tiếp từ Google Sheet của bạn (Không dùng Proxy)
+    // Link TSV trực tiếp từ Google Sheet
     const TSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRvuzHWqXL8q97i9JcW2MRR0pmMqRk7-jXBJrHGRTCKdf5OdrLQ8BNCIuDSZsUt_Zov-TyuaqvOJLG0/pub?gid=0&single=true&output=tsv';
 
     let allJobs = [];
+
+    // Số Zalo mặc định liên hệ của bạn
+    const MY_ZALO_PHONE = '0328518379';
 
     function parseTSV(text) {
       const lines = text.split('\n');
@@ -96,12 +102,12 @@
       const container = document.getElementById('jobList');
       try {
         const response = await fetch(TSV_URL);
-        if (!response.ok) throw new Error('Không thể tải dữ liệu từ Google Sheet');
+        if (!response.ok) throw new Error('Không thể tải dữ liệu');
 
         const dataText = await response.text();
         const rawData = parseTSV(dataText);
 
-        // Lọc bài đăng theo trạng thái
+        // Lọc các bài có trạng thái đang tuyển
         allJobs = rawData.filter(job => {
           const status = (job['Trạng thái'] || job['Trạng Thái'] || '').toLowerCase();
           return status === '' || status === 'đang tuyển';
@@ -112,17 +118,17 @@
       } catch (error) {
         console.error("Lỗi tải dữ liệu:", error);
         container.innerHTML = `
-          <div class="bg-red-50 text-red-600 p-4 rounded-xl text-center text-sm border border-red-100 space-y-2">
-            <p class="font-bold">Không thể tải dữ liệu từ Google Sheet.</p>
-            <p class="text-xs">Vui lòng kiểm tra lại quyền Chia sẻ công khai (Anyone with the link can view) và đã xuất bản dạng TSV.</p>
+          <div class="bg-red-50 text-red-600 p-4 rounded-xl text-center text-sm border border-red-100">
+            Không thể tải dữ liệu từ Google Sheet. Vui lòng kiểm tra lại quyền Chia sẻ công khai.
           </div>
         `;
       }
     }
 
+    // Tự động gom danh sách địa điểm vào ô chọn lọc
     function populateLocations(jobs) {
       const select = document.getElementById('filterLocation');
-      select.innerHTML = '<option value="">Tất cả Địa điểm / Khu vực</option>';
+      select.innerHTML = '<option value="">📍 Lọc theo Địa điểm / Khu vực</option>';
       const locations = new Set();
       jobs.forEach(job => {
         const loc = job['Địa điểm'] || job['Địa Điểm'];
@@ -131,9 +137,26 @@
       locations.forEach(loc => {
         const opt = document.createElement('option');
         opt.value = loc;
-        opt.textContent = loc;
+        opt.textContent = `📍 ${loc}`;
         select.appendChild(opt);
       });
+    }
+
+    // Ánh xạ icon sinh động cho từng trường thông tin tương ứng
+    function getFieldIcon(key) {
+      const k = key.toLowerCase();
+      if (k.includes('công việc') || k.includes('cv')) return '<i class="fa-solid fa-screwdriver-wrench text-blue-500 w-5"></i>';
+      if (k.includes('mô tả')) return '<i class="fa-solid fa-list-check text-indigo-500 w-5"></i>';
+      if (k.includes('địa điểm')) return '<i class="fa-solid fa-location-dot text-rose-500 w-5"></i>';
+      if (k.includes('ca')) return '<i class="fa-solid fa-clock text-amber-500 w-5"></i>';
+      if (k.includes('lương theo ca') || k.includes('thu nhập')) return '<i class="fa-solid fa-coins text-emerald-600 w-5"></i>';
+      if (k.includes('tăng ca')) return '<i class="fa-solid fa-business-time text-purple-500 w-5"></i>';
+      if (k.includes('thưởng')) return '<i class="fa-solid fa-gift text-pink-500 w-5"></i>';
+      if (k.includes('lịch trả') || k.includes('trả lương')) return '<i class="fa-solid fa-calendar-days text-teal-500 w-5"></i>';
+      if (k.includes('đãi ngộ')) return '<i class="fa-solid fa-utensils text-orange-500 w-5"></i>';
+      if (k.includes('yêu cầu')) return '<i class="fa-solid fa-circle-check text-cyan-600 w-5"></i>';
+      if (k.includes('địa chỉ')) return '<i class="fa-solid fa-map-location-dot text-red-500 w-5"></i>';
+      return '<i class="fa-solid fa-circle-info text-gray-400 w-5"></i>';
     }
 
     function renderJobs(jobs) {
@@ -142,35 +165,43 @@
         container.innerHTML = `
           <div class="bg-white p-8 rounded-xl text-center text-gray-500 shadow-sm border border-gray-100">
             <i class="fa-solid fa-box-open text-4xl text-gray-300 mb-2"></i>
-            <p>Không có bài tuyển dụng nào phù hợp.</p>
+            <p>Không tìm thấy bài tuyển dụng phù hợp.</p>
           </div>
         `;
         return;
       }
 
       container.innerHTML = jobs.map(job => {
-        const zaloPhone = (job['SĐT ZALO'] || job['SĐT Zalo'] || '').replace(/\D/g, '');
-        const zaloLink = zaloPhone ? `https://zalo.me/${zaloPhone}` : '#';
+        // Cố định liên kết Zalo tới số của bạn
+        const zaloLink = `https://zalo.me/${MY_ZALO_PHONE}`;
         const title = job['Tiêu Đề'] || job['Tiêu đề'] || 'Tuyển dụng việc làm';
         const hrName = job['Tên HR'] || 'Bộ phận tuyển dụng';
         const status = job['Trạng thái'] || job['Trạng Thái'];
 
+        // Các cột hệ thống không lặp ở phần thân thẻ
         const excludedKeys = ['Mã Bài', 'Mã bài', 'Tiêu Đề', 'Tiêu đề', 'Tên HR', 'SĐT ZALO', 'SĐT Zalo', 'Trạng thái', 'Trạng Thái', 'Link map', 'Link Map'];
 
+        // Duyệt qua từng trường, trường nào TRỐNG thì tự động bỏ qua (không hiện)
         let dynamicFieldsHTML = '';
         Object.entries(job).forEach(([key, val]) => {
           if (val && val.trim() !== '' && !excludedKeys.includes(key)) {
             let displayVal = val;
             
+            // Nếu là trường Địa chỉ và có đính kèm Link map thì gắn thêm nút xem bản đồ sinh động
             if ((key.toLowerCase() === 'địa chỉ') && (job['Link map'] || job['Link Map'])) {
               const mapLink = job['Link map'] || job['Link Map'];
-              displayVal = `${val} <a href="${mapLink}" target="_blank" class="text-blue-600 underline font-medium ml-1">[Xem bản đồ]</a>`;
+              displayVal = `${val} <a href="${mapLink}" target="_blank" class="text-blue-600 font-semibold hover:underline ml-1"><i class="fa-solid fa-map-pin"></i> [Xem bản đồ]</a>`;
             }
 
+            const icon = getFieldIcon(key);
+
             dynamicFieldsHTML += `
-              <div class="flex flex-col sm:flex-row sm:items-start gap-1 py-1 border-b border-gray-100 last:border-none text-xs sm:text-sm">
-                <span class="font-semibold text-gray-700 sm:w-36 shrink-0">• ${key}:</span>
-                <span class="text-gray-600 flex-1">${displayVal}</span>
+              <div class="flex items-start gap-2 py-1.5 border-b border-gray-100 last:border-none text-xs sm:text-sm">
+                <span class="shrink-0 mt-0.5">${icon}</span>
+                <div class="flex-1">
+                  <span class="font-semibold text-gray-700">${key}:</span>
+                  <span class="text-gray-600 ml-1">${displayVal}</span>
+                </div>
               </div>
             `;
           }
@@ -178,9 +209,10 @@
 
         return `
           <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition space-y-3">
+            <!-- Tiêu đề & Trạng thái -->
             <div class="flex justify-between items-start gap-2">
-              <h2 class="text-base sm:text-lg font-bold text-gray-900">
-                ${title}
+              <h2 class="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+                <i class="fa-solid fa-bullhorn text-blue-600 text-sm"></i> ${title}
               </h2>
               ${status ? `
                 <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md shrink-0">
@@ -189,21 +221,23 @@
               ` : ''}
             </div>
 
-            <div class="bg-gray-50 rounded-lg p-3.5 space-y-1.5 border border-gray-100">
+            <!-- Các trường thông tin động (Có dữ liệu mới hiện) -->
+            <div class="bg-gray-50 rounded-lg p-3.5 space-y-1 border border-gray-100">
               ${dynamicFieldsHTML}
             </div>
 
+            <!-- Footer: Zalo liên hệ cá nhân -->
             <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 border-t border-gray-100">
               <div class="text-xs text-gray-500">
-                <i class="fa-solid fa-user-tie text-gray-400 mr-1"></i> HR: <strong class="text-gray-700">${hrName}</strong>
+                <i class="fa-solid fa-user-tie text-blue-500 mr-1"></i> Liên hệ HR Zalo: <strong class="text-gray-700">${MY_ZALO_PHONE}</strong>
               </div>
               
               <a 
                 href="${zaloLink}" 
                 target="_blank" 
-                class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 shadow-sm transition"
+                class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-5 py-2.5 rounded-lg flex items-center justify-center gap-2 shadow-sm transition"
               >
-                <i class="fa-solid fa-comment-dots"></i> Nhắn Zalo Ứng Tuyển
+                <i class="fa-brands fa-whatsapp text-sm"></i> Nhắn Zalo (${MY_ZALO_PHONE})
               </a>
             </div>
           </div>
@@ -211,19 +245,22 @@
       }).join('');
     }
 
+    // Hàm lọc dữ liệu theo Từ khóa, Địa điểm và Cách thức trả lương
     function filterJobs() {
       const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
-      const location = document.getElementById('filterLocation').value.toLowerCase();
-      const paySchedule = document.getElementById('filterPaySchedule').value.toLowerCase();
+      const locationFilter = document.getElementById('filterLocation').value.toLowerCase();
+      const payFilter = document.getElementById('filterPaySchedule').value.toLowerCase();
 
       const filtered = allJobs.filter(job => {
         const textToSearch = Object.values(job).join(' ').toLowerCase();
 
         const matchKeyword = !keyword || textToSearch.includes(keyword);
+
         const locVal = (job['Địa điểm'] || job['Địa Điểm'] || '').toLowerCase();
-        const matchLocation = !location || locVal.includes(location);
-        const payVal = (job['Lịch trả'] || job['Lịch Trả'] || '').toLowerCase();
-        const matchPay = !paySchedule || payVal.includes(paySchedule);
+        const matchLocation = !locationFilter || locVal.includes(locationFilter);
+
+        const payVal = (job['Lịch trả'] || job['Lịch Trả'] || job['Lương theo ca'] || '').toLowerCase();
+        const matchPay = !payFilter || payVal.includes(payFilter);
 
         return matchKeyword && matchLocation && matchPay;
       });
